@@ -19,7 +19,8 @@ INSERT INTO Usuario (nombre, apellido, email, contrasenia, rol) VALUES
 ('Ana',   'Pérez', 'ana@example.com',   'password1', 'cliente_app'),
 ('Bruno', 'Gómez', 'bruno@example.com', 'password2', 'cliente_app'),
 ('Lucía', 'Rivas', 'lucia@example.com', 'password3', 'admin_app'),
-('Carlos','López', 'carlos@example.com','password4', 'operador_logistica');
+('Carlos','López', 'carlos@example.com','password4', 'operador_logistica'),
+('María', 'Sosa',  'maria@example.com', 'password5', 'operador_comercial');
 
 INSERT INTO Direccion (id_usuario, id_ciudad, calle) VALUES
 (1, 1, 'Av. Siempre Viva 123'),
@@ -32,7 +33,9 @@ INSERT INTO Direccion (id_usuario, id_ciudad, calle) VALUES
 INSERT INTO Producto (nombre, stock, precio, descripcion) VALUES
 ('Auriculares Bluetooth', 10, 15000.00, 'Auriculares inalámbricos con micrófono'),
 ('Mouse Gamer',            5,  8000.00, 'Mouse óptico RGB'),
-('Teclado Mecánico',       0, 20000.00, 'Teclado mecánico switch rojo');
+('Teclado Mecánico',       0, 20000.00, 'Teclado mecánico switch rojo'),
+('Mousepad', 50, 30000.00, 'Descripcion test'),
+('Webcam', 20, 50000.00, 'Descripcion test 2');
 
 
 INSERT INTO Promocion (id_producto, fechaInicio, fechaFin, titulo, descripcion, descuento, activa) VALUES
@@ -49,8 +52,8 @@ INSERT INTO ingresoProducto (id_producto, fecha, cant) VALUES
 (1, '2025-11-10', 5);
 
 -- Uno SIN fecha (debe completarse con CURRENT_DATE)
-INSERT INTO ingresoProducto (id_producto, fecha, cant) VALUES
-(3, NULL, 20);
+INSERT INTO ingresoProducto (id_producto, cant) VALUES
+(3, 20);
 
 -- En este punto, el stock esperado (si todo OK) es:
 --  producto 1: 10 + 5 = 15
@@ -108,8 +111,8 @@ INSERT INTO lineaCarrito (id_carrito, id_producto, fecha_agregado, cantidad, pre
 -- 7) FACTURA
 --     (Prueba: establecer_fecha_factura)
 -- ============================
-INSERT INTO Factura (id_usuario, fecha, monto_total) VALUES
-(1, NULL, 0);  -- fecha se completa con CURRENT_DATE
+INSERT INTO Factura (id_usuario,monto_total) VALUES
+(1,0);  -- fecha se completa con CURRENT_DATE
 
 -- factura_id esperado = 1
 
@@ -146,22 +149,11 @@ INSERT INTO lineaFactura (id_factura, id_producto, precio_unitario, descuento, c
 --   - recalcular el monto_total de la factura
 
 -- ============================
--- 9) PAGO
--- ============================
-INSERT INTO pago (id_factura, monto, metodo) VALUES
-(1, 417200.00, 'mercadopago');
-
--- ============================
--- 10) ENVÍO
+-- 9) ENVÍO
 --      (Prueba trigger_validar_transicion_estado_envio)
 -- ============================
 INSERT INTO Envio (id_direccion, id_factura, estado, fechaArribo, fechaEntrega, costoEnvio) VALUES
 (1, 1, 'pendiente', NULL, NULL, 1500.00);
-
--- envio_id esperado = 1
-
--- Transiciones de estado para probar:
--- (la función completa fechaArribo/fechaEntrega y evita retroceder desde 'entregado')
 
 -- En preparación
 UPDATE Envio
@@ -178,13 +170,8 @@ UPDATE Envio
 SET estado = 'entregado'
 WHERE envio_id = 1;
 
--- Intentar retroceder DEBE FALLAR:
--- UPDATE Envio
--- SET estado = 'enCamino'
--- WHERE envio_id = 1;
-
 -- ============================
--- 11) FAVORITOS
+-- 10) FAVORITOS
 --      (Prueba establecer_fecha_creacion_favorito)
 -- ============================
 INSERT INTO Favorito (id_usuario, id_producto, fecha_creacion, fecha_eliminacion) VALUES
@@ -193,7 +180,7 @@ INSERT INTO Favorito (id_usuario, id_producto, fecha_creacion, fecha_eliminacion
 (2, 3, '2025-10-05', '2025-10-20');      -- ejemplo con fecha_eliminacion
 
 -- ============================
--- 12) RESEÑAS
+-- 11) RESEÑAS
 --      (Prueba establecer_fecha_resena)
 -- ============================
 INSERT INTO Reseña (id_usuario, id_producto, calificacion, comentario, fecha) VALUES
@@ -257,9 +244,6 @@ SET cantidad = 14
 WHERE id_factura = 1 AND id_producto = 3; 
 SELECT stock FROM Producto WHERE producto_id = 3;  -- antes 15, ahora 1
 
-INSERT INTO producto (nombre, stock, precio, descripcion) VALUES
-('Mousepad', 50, 30000.00, 'Descripcion test');
-
 -- 9) RESTAURAR STOCK FACTURA
 SELECT stock FROM Producto WHERE producto_id = 4; -- debe ser 50
 
@@ -273,29 +257,44 @@ WHERE id_factura = 1 AND id_producto = 4;
 SELECT * FROM lineafactura;
 SELECT monto_total FROM factura WHERE factura_id = 1;
 
-
-INSERT INTO producto (nombre, stock, precio, descripcion) VALUES
-('Webcam', 20, 50000.00, 'Descripcion test 2');
-
-SELECT * FROM producto;
-
 INSERT INTO lineaFactura (id_factura, id_producto, precio_unitario, descuento, cantidad, subtotal)
 VALUES (1, 5, 50000, 5, 2, 0);
 
---11) VALIDAR TRANSICION ESTADO ENVIO (FALLA)
+-- 11) VALIDAR PAGO TOTAL FACTURA
+-- Insertar pago con el monto exacto del monto_total
+INSERT INTO pago (id_factura, monto, metodo) VALUES
+(1, 417200.00, 'mercadopago');
+
+--12) VALIDAR TRANSICION ESTADO ENVIO (FALLA)
+
+UPDATE Envio
+SET estado = 'enPreparacion'
+WHERE envio_id = 1;
+
+UPDATE Envio
+SET estado = 'enCamino'
+WHERE envio_id = 1;
+
+UPDATE Envio
+SET estado = 'entregado'
+WHERE envio_id = 1;
+
 UPDATE Envio
 SET estado = 'enCamino' 
 WHERE envio_id = 1; -- ya estaba en 'entregado', no puede retroceder
 
-SELECT * FROM ingresoProducto;
-SELECT * FROM factura;
-SELECT * FROM carrito;
-SELECT * FROM lineaCarrito;
-SELECT * FROM envio;
-
--- falla ya que el usuario puede tener solo un carrito activo
+-- 13) un usuario puede tener solo un carrito activo (FALLA)
 INSERT INTO Carrito (id_usuario, fecha_creacion, fecha_actualizacion, estado, total) VALUES
 (1, '2025-11-17', '2025-11-17', 'activo',  0)
+
+-- SELECT * FROM ingresoProducto;
+-- SELECT * FROM factura;
+-- SELECT * FROM carrito;
+-- SELECT * FROM lineaCarrito;
+-- SELECT * FROM envio;
+-- SELECT * FROM ingresoProducto;
+-- SELECT * FROM pago;
+
 
 -- VIEWS TESTING
 
@@ -329,23 +328,35 @@ SELECT * FROM v_ventas_producto;
 
 
 BEGIN;
--- Usuarios de prueba
-CREATE USER usr_admin_app       PASSWORD 'admin123';
-CREATE USER usr_op_comercial    PASSWORD 'comercial123';
-CREATE USER usr_op_logistica    PASSWORD 'logistica123';
-CREATE USER usr_cliente_app     PASSWORD 'cliente123';
 
--- Asignar roles
-GRANT admin_app         TO usr_admin_app;
-GRANT operador_comercial TO usr_op_comercial;
-GRANT operador_logistica TO usr_op_logistica;
-GRANT cliente_app        TO usr_cliente_app;
+-- usuarios de prueba
+CREATE USER lucia_rivas       PASSWORD 'password3';  -- admin_app
+CREATE USER maria_sosa        PASSWORD 'password5';   -- operador_comercial
+CREATE USER carlos_lopez      PASSWORD 'password4';   -- operador_logistica
+CREATE USER ana_perez         PASSWORD 'password1';  -- cliente_app
+CREATE USER bruno_gomez       PASSWORD 'password2';   -- cliente_app
+
+-- asignar roles
+GRANT admin_app         TO lucia_rivas;
+GRANT operador_comercial TO maria_sosa;
+GRANT operador_logistica TO carlos_lopez;
+GRANT cliente_app        TO ana_perez;
+GRANT cliente_app        TO bruno_gomez;
+
 COMMIT;
 
--- SET ROLE usr_op_comercial;
--- -- o
--- SET ROLE usr_admin_app;  -- según cómo lo manejes
+-- Para probar con usuarios específicos, usar:
+-- SET ROLE lucia_rivas;      -- admin_app
+-- SET ROLE maria_sosa;       -- operador_comercial
+-- SET ROLE carlos_lopez;     -- operador_logistica
+-- SET ROLE ana_perez;         -- cliente_app
+-- SET ROLE bruno_gomez;      -- cliente_app
 
+-- O usar directamente los roles:
+-- SET ROLE admin_app;
+-- SET ROLE operador_comercial;
+-- SET ROLE operador_logistica;
+-- SET ROLE cliente_app;
 
 -- admin_app: puede todo
 SET ROLE admin_app;
