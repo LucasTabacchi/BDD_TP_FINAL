@@ -1,4 +1,4 @@
---PRUEBAS TRIGGERS
+--- PRUEBAS TRIGGERS
 
 --1) ACTUALIZAR STOCK INGRESO
 INSERT INTO ingresoProducto (id_producto, fecha, cant) VALUES (1, CURRENT_DATE, 10);
@@ -399,3 +399,221 @@ VALUES (1, 100);
 INSERT INTO Envio (id_direccion, id_factura, estado, costoEnvio)
 VALUES (1, 1, 'pendiente', 1000);
 -- Esperado: ERROR: permission denied for table envio
+
+
+--- PRUEBAS RLS
+
+-- =========================================================
+-- PASO 1: Verificar correspondencia entre usuarios PostgreSQL y tabla Usuario
+-- =========================================================
+
+SELECT '========================================' AS separador;
+SELECT 'VERIFICACIÓN DE USUARIOS' AS titulo;
+SELECT '========================================' AS separador;
+
+-- Verificar que existe Ana Pérez en la tabla Usuario
+SELECT 
+    usuario_id,
+    nombre,
+    apellido,
+    email,
+    rol
+FROM Usuario
+WHERE nombre = 'Ana' AND apellido = 'Pérez'
+   OR email LIKE '%ana%'
+ORDER BY usuario_id;
+
+-- Mostrar todos los usuarios cliente_app disponibles
+SELECT 
+    usuario_id,
+    nombre || ' ' || apellido AS nombre_completo,
+    email,
+    rol
+FROM Usuario
+WHERE rol = 'cliente_app'
+ORDER BY usuario_id;
+
+-- =========================================================
+-- PASO 2: PRUEBA CON ana_perez (usuario_id = 1)
+-- =========================================================
+
+SELECT '========================================' AS separador;
+SELECT 'PRUEBA 1: ana_perez (usuario_id = 1)' AS titulo;
+SELECT '========================================' AS separador;
+
+-- Establecer el usuario_id en la variable de sesión
+-- IMPORTANTE: Esto debe hacerse ANTES de cambiar al rol cliente_app
+SET app.user_id = '1';
+
+-- Cambiar al rol cliente_app
+SET ROLE cliente_app;
+
+-- Verificar que puede ver su propio usuario
+SELECT 'PRUEBA 1.1: Ver su propio usuario' AS prueba;
+SELECT usuario_id, nombre, apellido, email, rol 
+FROM Usuario 
+WHERE usuario_id = 1;
+-- Debe retornar 1 fila
+
+-- Verificar que NO puede ver otros usuarios
+SELECT 'PRUEBA 1.2: Intentar ver otro usuario (debe estar bloqueado por RLS)' AS prueba;
+SELECT usuario_id, nombre, apellido, email 
+FROM Usuario 
+WHERE usuario_id = 2;
+-- Debe retornar 0 filas (RLS bloquea)
+
+-- Verificar que puede ver sus propias direcciones
+SELECT 'PRUEBA 1.3: Ver sus propias direcciones' AS prueba;
+SELECT direccion_id, id_usuario, calle 
+FROM Direccion 
+WHERE id_usuario = 1;
+-- Debe retornar solo direcciones del usuario 1
+
+-- Verificar que NO puede ver direcciones de otros usuarios
+SELECT 'PRUEBA 1.4: Intentar ver direcciones de otro usuario (debe estar bloqueado)' AS prueba;
+SELECT direccion_id, id_usuario, calle 
+FROM Direccion 
+WHERE id_usuario = 2;
+-- Debe retornar 0 filas (RLS bloquea)
+
+-- Verificar que puede ver sus propias facturas
+SELECT 'PRUEBA 1.5: Ver sus propias facturas' AS prueba;
+SELECT factura_id, id_usuario, fecha, monto_total 
+FROM Factura 
+WHERE id_usuario = 1;
+-- Debe retornar solo facturas del usuario 1
+
+-- Verificar que NO puede ver facturas de otros usuarios
+SELECT 'PRUEBA 1.6: Intentar ver facturas de otro usuario (debe estar bloqueado)' AS prueba;
+SELECT factura_id, id_usuario, fecha, monto_total 
+FROM Factura 
+WHERE id_usuario = 2;
+-- Debe retornar 0 filas (RLS bloquea)
+
+-- Verificar que puede ver todas las reseñas (política especial)
+SELECT 'PRUEBA 1.7: Ver todas las reseñas (política permite ver todas)' AS prueba;
+SELECT COUNT(*) AS total_resenas FROM Reseña;
+-- Debe retornar todas las reseñas
+
+-- Intentar crear una dirección para sí mismo (debe funcionar)
+SELECT 'PRUEBA 1.8: Crear dirección para sí mismo' AS prueba;
+DO $$
+DECLARE
+    v_ciudad_id INTEGER;
+BEGIN
+    -- Obtener una ciudad existente
+    SELECT MIN(ciudad_id) INTO v_ciudad_id FROM Ciudad;
+    
+    IF v_ciudad_id IS NOT NULL THEN
+        INSERT INTO Direccion (id_usuario, id_ciudad, calle)
+        VALUES (1, v_ciudad_id, 'Calle de Prueba RLS - Ana Pérez')
+        ON CONFLICT DO NOTHING;
+        
+        RAISE NOTICE 'ÉXITO: Dirección creada correctamente';
+    ELSE
+        RAISE NOTICE 'ADVERTENCIA: No hay ciudades disponibles para la prueba';
+    END IF;
+END $$;
+
+-- Verificar que la dirección se creó
+SELECT direccion_id, id_usuario, calle 
+FROM Direccion 
+WHERE calle = 'Calle de Prueba RLS - Ana Pérez';
+
+-- Intentar crear una dirección para otro usuario (debe fallar)
+SELECT 'PRUEBA 1.9: Intentar crear dirección para otro usuario (debe fallar)' AS prueba;
+DO $$
+DECLARE
+    v_ciudad_id INTEGER;
+BEGIN
+    -- Obtener una ciudad existente
+    SELECT MIN(ciudad_id) INTO v_ciudad_id FROM Ciudad;
+    
+    IF v_ciudad_id IS NOT NULL THEN
+        BEGIN
+            INSERT INTO Direccion (id_usuario, id_ciudad, calle)
+            VALUES (2, v_ciudad_id, 'Calle Hackeada - No debería funcionar');
+            
+            RAISE NOTICE 'ERROR: La inserción debería haber fallado';
+        EXCEPTION
+            WHEN insufficient_privilege THEN
+                RAISE NOTICE 'ÉXITO: RLS bloqueó correctamente la inserción';
+            WHEN OTHERS THEN
+                RAISE NOTICE 'ERROR: %', SQLERRM;
+        END;
+    END IF;
+END $$;
+
+-- Volver al rol original
+RESET ROLE;
+
+-- =========================================================
+-- PASO 3: PRUEBA CON OTRO CLIENTE (si existe)
+-- =========================================================
+
+-- Buscar otro usuario cliente_app
+DO $$
+DECLARE
+    v_otro_usuario_id INTEGER;
+    v_otro_nombre TEXT;
+BEGIN
+    -- Buscar otro cliente_app (diferente de usuario_id = 1)
+    SELECT usuario_id, nombre || ' ' || apellido
+    INTO v_otro_usuario_id, v_otro_nombre
+    FROM Usuario
+    WHERE rol = 'cliente_app' AND usuario_id != 1
+    LIMIT 1;
+    
+    IF v_otro_usuario_id IS NOT NULL THEN
+        RAISE NOTICE '========================================';
+        RAISE NOTICE 'PRUEBA 2: Otro cliente (usuario_id = %)', v_otro_usuario_id;
+        RAISE NOTICE '========================================';
+        
+        -- Establecer el usuario_id del otro cliente
+        EXECUTE format('SET app.user_id = %s', v_otro_usuario_id);
+        SET ROLE cliente_app;
+        
+        -- Verificar que solo ve sus propios datos
+        RAISE NOTICE 'Verificando que solo ve sus propios datos...';
+        
+        -- Verificar que NO puede ver datos del usuario 1
+        IF NOT EXISTS (SELECT 1 FROM Usuario WHERE usuario_id = 1) THEN
+            RAISE NOTICE 'ÉXITO: No puede ver datos del usuario 1 (RLS funciona)';
+        ELSE
+            RAISE NOTICE 'ERROR: Puede ver datos del usuario 1 (RLS no funciona)';
+        END IF;
+        
+        -- Verificar que puede ver sus propios datos
+        IF EXISTS (SELECT 1 FROM Usuario WHERE usuario_id = v_otro_usuario_id) THEN
+            RAISE NOTICE 'ÉXITO: Puede ver sus propios datos';
+        ELSE
+            RAISE NOTICE 'ERROR: No puede ver sus propios datos';
+        END IF;
+        
+        RESET ROLE;
+    ELSE
+        RAISE NOTICE 'No se encontró otro usuario cliente_app para la prueba';
+    END IF;
+END $$;
+
+-- =========================================================
+-- PASO 4: VERIFICAR QUE ADMIN NO ESTÁ AFECTADO POR RLS
+-- =========================================================
+
+-- Cambiar a admin_app
+SET ROLE admin_app;
+
+-- Verificar que puede ver todos los usuarios
+SELECT 'PRUEBA 3.1: Admin puede ver todos los usuarios' AS prueba;
+SELECT COUNT(*) AS total_usuarios FROM usuario;
+-- Debe retornar todos los usuarios
+
+-- Verificar que puede ver todas las facturas
+SELECT 'PRUEBA 3.2: Admin puede ver todas las facturas' AS prueba;
+SELECT COUNT(*) AS total_facturas FROM Factura;
+-- Debe retornar todas las facturas
+
+-- Eliminar la dirección de prueba creada
+DELETE FROM Direccion WHERE calle = 'Calle de Prueba RLS - Ana Pérez';
+
+set role postgres;  -- volver a superusuario
