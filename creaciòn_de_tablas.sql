@@ -112,7 +112,8 @@ CREATE TABLE Factura (
   factura_id   SERIAL PRIMARY KEY,
   id_usuario   INT NOT NULL REFERENCES Usuario(usuario_id),
   fecha        DATE NOT NULL DEFAULT CURRENT_DATE,
-  monto_total  NUMERIC(10,2) NOT NULL CHECK (monto_total >= 0)
+  monto_total  NUMERIC(10,2) NOT NULL CHECK (monto_total >= 0),
+  estado VARCHAR(10) NOT NULL DEFAULT 'emitida'
 );
 
 CREATE TABLE lineaFactura (

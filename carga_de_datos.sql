@@ -60,7 +60,7 @@ INSERT INTO Usuario (nombre, apellido, email, contrasenia, rol) VALUES
 ('Nicolás', 'Ferrer',   'nicolas@example.com',  'Password14',  'cliente_app'),
 ('Olga',    'Silva',    'olga@example.com',     'Password15',  'cliente_app');
 -- usuario_id = 1..15 en este orden
-SELECT * FROM usuario;
+
 -- =========================================================
 -- DIRECCION (15 filas)
 -- =========================================================
@@ -168,24 +168,28 @@ INSERT INTO Carrito (id_usuario, fecha_creacion, fecha_actualizacion, estado, to
 
 -- =========================================================
 -- LINEA CARRITO (15 filas, solo carritos activos 1..10)
--- Subtotal lo calcula el trigger BEFORE INSERT
+-- Ahora el trigger set_precio_y_subtotal_carrito setea precio_unitario y subtotal.
+-- Por eso:
+--   - NO insertamos precio_unitario
+--   - SÍ insertamos subtotal (pero es NOT NULL), entonces lo seteamos dummy 0 y el trigger lo recalcula
+--     (el trigger BEFORE INSERT pisa NEW.subtotal).
 -- =========================================================
-INSERT INTO lineaCarrito (id_carrito, id_producto, fecha_agregado, cantidad, precio_unitario) VALUES
-(1,  1,  '2025-10-02', 2, 100.00),
-(1,  2,  '2025-10-02', 1, 150.00),
-(2,  3,  '2025-10-03', 3, 200.00),
-(2,  4,  '2025-10-03', 1, 250.00),
-(3,  5,  '2025-10-04', 2, 300.00),
-(3,  6,  '2025-10-04', 1, 350.00),
-(4,  7,  '2025-10-05', 1, 400.00),
-(4,  8,  '2025-10-05', 2, 450.00),
-(5,  9,  '2025-10-06', 1, 500.00),
-(5,  10, '2025-10-06', 1, 550.00),
-(6,  11, '2025-10-07', 2, 600.00),
-(7,  12, '2025-10-08', 1, 650.00),
-(8,  13, '2025-10-09', 1, 700.00),
-(9,  14, '2025-10-10', 2, 750.00),
-(10, 15, '2025-10-11', 1, 800.00);
+INSERT INTO lineaCarrito (id_carrito, id_producto, fecha_agregado, cantidad, precio_unitario, subtotal) VALUES
+(1,  1,  '2025-10-02', 2, 0.00, 0.00),
+(1,  2,  '2025-10-02', 1, 0.00, 0.00),
+(2,  3,  '2025-10-03', 3, 0.00, 0.00),
+(2,  4,  '2025-10-03', 1, 0.00, 0.00),
+(3,  5,  '2025-10-04', 2, 0.00, 0.00),
+(3,  6,  '2025-10-04', 1, 0.00, 0.00),
+(4,  7,  '2025-10-05', 1, 0.00, 0.00),
+(4,  8,  '2025-10-05', 2, 0.00, 0.00),
+(5,  9,  '2025-10-06', 1, 0.00, 0.00),
+(5,  10, '2025-10-06', 1, 0.00, 0.00),
+(6,  11, '2025-10-07', 2, 0.00, 0.00),
+(7,  12, '2025-10-08', 1, 0.00, 0.00),
+(8,  13, '2025-10-09', 1, 0.00, 0.00),
+(9,  14, '2025-10-10', 2, 0.00, 0.00),
+(10, 15, '2025-10-11', 1, 0.00, 0.00);
 
 -- =========================================================
 -- FAVORITO (15 filas)
@@ -228,71 +232,64 @@ INSERT INTO Reseña (id_usuario, id_producto, calificacion, comentario, fecha) V
 (12, 15,4, 'Recomendable',                 '2025-09-24');
 
 -- =========================================================
--- FACTURA (15 filas) - monto_total se recalcula por trigger
+-- FACTURA (15 filas)
+-- Ahora Factura tiene estado (emitida/anulada).
+-- Si no lo incluís, toma DEFAULT 'emitida'. Lo dejamos explícito.
+-- monto_total comienza en 0 y se recalcula al insertar lineaFactura.
 -- =========================================================
-INSERT INTO Factura (id_usuario, fecha, monto_total) VALUES
-(1,  '2025-11-01', 0.00),
-(2,  '2025-11-01', 0.00),
-(3,  '2025-11-02', 0.00),
-(4,  '2025-11-02', 0.00),
-(5,  '2025-11-03', 0.00),
-(6,  '2025-11-03', 0.00),
-(7,  '2025-11-04', 0.00),
-(8,  '2025-11-04', 0.00),
-(9,  '2025-11-05', 0.00),
-(10, '2025-11-05', 0.00),
-(11, '2025-11-06', 0.00),
-(12, '2025-11-06', 0.00),
-(13, '2025-11-07', 0.00),
-(14, '2025-11-07', 0.00),
-(15, '2025-11-08', 0.00);
+INSERT INTO Factura (id_usuario, fecha, monto_total, estado) VALUES
+(1,  '2025-11-01', 0.00, 'emitida'),
+(2,  '2025-11-01', 0.00, 'emitida'),
+(3,  '2025-11-02', 0.00, 'emitida'),
+(4,  '2025-11-02', 0.00, 'emitida'),
+(5,  '2025-11-03', 0.00, 'emitida'),
+(6,  '2025-11-03', 0.00, 'emitida'),
+(7,  '2025-11-04', 0.00, 'emitida'),
+(8,  '2025-11-04', 0.00, 'emitida'),
+(9,  '2025-11-05', 0.00, 'emitida'),
+(10, '2025-11-05', 0.00, 'emitida'),
+(11, '2025-11-06', 0.00, 'emitida'),
+(12, '2025-11-06', 0.00, 'emitida'),
+(13, '2025-11-07', 0.00, 'emitida'),
+(14, '2025-11-07', 0.00, 'emitida'),
+(15, '2025-11-08', 0.00, 'emitida');
 -- factura_id = 1..15
 
 -- =========================================================
--- LINEA FACTURA (15 filas, 1 línea por factura)
--- Subtotal lo calcula el trigger calcular_subtotal_factura
+-- LINEA FACTURA (15 filas)
+-- Ahora el trigger set_precio_y_subtotal_factura setea precio_unitario y subtotal.
+-- Además, tu modelo exige NOT NULL en precio_unitario y subtotal.
+-- Por eso:
+--   - insertamos precio_unitario y subtotal como 0.00 (valores dummy)
+--   - el trigger BEFORE INSERT los pisa con el precio real y el subtotal calculado
 -- =========================================================
-INSERT INTO lineaFactura (id_factura, id_producto, precio_unitario, descuento, cantidad) VALUES
-(1,  1,  100.00, 0,  2),   -- subtotal 200.00
-(2,  2,  150.00, 10, 3),   -- 135 * 3 = 405.00
-(3,  3,  200.00, 0,  1),   -- 200.00
-(4,  4,  250.00, 15, 4),   -- 212.5 * 4 = 850.00
-(5,  5,  300.00, 0,  2),   -- 600.00
-(6,  6,  350.00, 5,  5),   -- 332.5 * 5 = 1662.50
-(7,  7,  400.00, 0,  3),   -- 1200.00
-(8,  8,  450.00, 20, 2),   -- 360 * 2 = 720.00
-(9,  9,  500.00, 0,  1),   -- 500.00
-(10, 10, 550.00, 0,  4),   -- 2200.00 (ojo: monto_total será 2200)
-(11, 11, 600.00, 0,  2),   -- 1200.00
-(12, 12, 650.00, 0,  3),   -- 1950.00
-(13, 13, 700.00, 5,  1),   -- 665.00
-(14, 14, 750.00, 0,  2),   -- 1500.00
-(15, 15, 800.00, 15, 3);   -- 680 * 3 = 2040.00
+INSERT INTO lineaFactura (id_factura, id_producto, precio_unitario, descuento, cantidad, subtotal) VALUES
+(1,  1,  0.00, 0,  2, 0.00),
+(2,  2,  0.00, 10, 3, 0.00),
+(3,  3,  0.00, 0,  1, 0.00),
+(4,  4,  0.00, 15, 4, 0.00),
+(5,  5,  0.00, 0,  2, 0.00),
+(6,  6,  0.00, 5,  5, 0.00),
+(7,  7,  0.00, 0,  3, 0.00),
+(8,  8,  0.00, 20, 2, 0.00),
+(9,  9,  0.00, 0,  1, 0.00),
+(10, 10, 0.00, 0,  4, 0.00),
+(11, 11, 0.00, 0,  2, 0.00),
+(12, 12, 0.00, 0,  3, 0.00),
+(13, 13, 0.00, 5,  1, 0.00),
+(14, 14, 0.00, 0,  2, 0.00),
+(15, 15, 0.00, 15, 3, 0.00);
 
--- Tené en cuenta que el trigger actualizar_monto_total_factura
--- va a poner Factura.monto_total igual a la suma de los subtotales.
-
 -- =========================================================
--- PAGO (15 filas, un pago por factura)
--- Debe coincidir con monto_total de cada factura
+-- PAGO (15 filas)
+-- IMPORTANTE: validar_pago_total_factura exige que el pago sea EXACTAMENTE el monto_total.
+-- Como monto_total lo recalcula el trigger en lineaFactura, NO hardcodeamos montos:
+-- los insertamos desde la BD con un SELECT.
 -- =========================================================
--- OJO: para factura 10, el monto_total será 2200.00, así que el pago debe ser 2200.
-INSERT INTO Pago (id_factura, monto, metodo) VALUES
-(1,  200.00,  'mercadopago'),
-(2,  405.00,  'mercadopago'),
-(3,  200.00,  'mercadopago'),
-(4,  850.00,  'mercadopago'),
-(5,  600.00,  'mercadopago'),
-(6,  1662.50, 'mercadopago'),
-(7,  1200.00, 'mercadopago'),
-(8,  720.00,  'mercadopago'),
-(9,  500.00,  'mercadopago'),
-(10, 2200.00, 'mercadopago'),
-(11, 1200.00, 'mercadopago'),
-(12, 1950.00, 'mercadopago'),
-(13, 665.00,  'mercadopago'),
-(14, 1500.00, 'mercadopago'),
-(15, 2040.00, 'mercadopago');
+INSERT INTO Pago (id_factura, monto, metodo)
+SELECT f.factura_id, f.monto_total, 'mercadopago'
+FROM Factura f
+ORDER BY f.factura_id;
 
 -- =========================================================
 -- ENVIO (15 filas, 1 por factura)
