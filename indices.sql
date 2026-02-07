@@ -4,7 +4,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_envio_factura_unico
 ON Envio (id_factura);
 
 COMMENT ON INDEX idx_envio_factura_unico IS 
-'Garantiza que cada factura solo puede tener un envío asociado';ç
+'Garantiza que cada factura solo puede tener un envío asociado';
 
 COMMIT;
 

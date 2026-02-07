@@ -180,7 +180,6 @@ COMMENT ON VIEW v_detalle_carrito IS
 -- =========================================================
 
 -- Vista: Facturas con información del cliente
-
 CREATE OR REPLACE VIEW v_facturas_completas AS
 SELECT 
     f.factura_id,
@@ -217,7 +216,6 @@ LEFT JOIN Envio e ON f.factura_id = e.id_factura;
 
 COMMENT ON VIEW v_facturas_completas IS 
 'Facturas con información completa: cliente, pagos y envíos. Solo se permiten pagos del monto total completo.';
-
 
 -- Vista: Detalle de factura con productos
 CREATE OR REPLACE VIEW v_detalle_factura AS
@@ -362,6 +360,21 @@ ORDER BY favoritos_activos DESC;
 COMMENT ON VIEW v_productos_populares IS 
 'Productos más agregados a favoritos. Para análisis comercial.';
 
+
+-- =========================================================
+-- AJUSTE DE SEGURIDAD EN VISTAS (RLS + owner postgres)
+-- PostgreSQL 15+: security_invoker hace que la vista se ejecute
+-- con los privilegios del que la invoca (Ana), no del owner.
+-- =========================================================
+
+ALTER VIEW v_perfil_usuario     SET (security_invoker = true);
+ALTER VIEW v_carritos_activos   SET (security_invoker = true);
+ALTER VIEW v_detalle_carrito    SET (security_invoker = true);
+ALTER VIEW v_mis_envios         SET (security_invoker = true);
+ALTER VIEW v_detalle_factura    SET (security_invoker = true);
+ALTER VIEW v_facturas_completas SET (security_invoker = true);
+
+
 -- =========================================================
 -- OTORGAR PERMISOS EN VISTAS
 -- =========================================================
@@ -374,6 +387,10 @@ GRANT SELECT ON v_detalle_carrito TO cliente_app;
 GRANT SELECT ON v_detalle_factura TO cliente_app;
 GRANT SELECT ON v_mis_envios TO cliente_app;
 GRANT SELECT ON v_resenas_productos TO cliente_app;
+GRANT SELECT ON v_facturas_completas TO cliente_app;
+GRANT SELECT ON v_carritos_activos TO cliente_app;
+GRANT SELECT ON v_productos_populares TO cliente_app;
+
 
 -- Operador Comercial: Vistas de análisis y productos
 GRANT SELECT ON v_usuario_publico TO operador_comercial;
@@ -388,6 +405,10 @@ GRANT SELECT ON v_detalle_factura TO operador_comercial;
 GRANT SELECT ON v_ventas_producto TO operador_comercial;
 GRANT SELECT ON v_resenas_productos TO operador_comercial;
 GRANT SELECT ON v_productos_populares TO operador_comercial;
+GRANT SELECT ON Pago TO operador_comercial;
+GRANT SELECT ON Envio TO operador_comercial;
+GRANT SELECT ON v_envios_pendientes TO operador_comercial;
+
 
 -- Operador Logística: Vistas de stock y envíos
 GRANT SELECT ON v_usuario_publico TO operador_logistica;

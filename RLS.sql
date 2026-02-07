@@ -15,49 +15,47 @@ BEGIN;
 -- En PostgreSQL, cuando una tabla tiene RLS habilitado, los permisos GRANT por sí solos
 -- NO alcanzan: el motor aplica además las POLICIES como filtros por fila.
 --
--- Las expresiones clave en una POLICY son:
---
--- 1) USING (condición)
---    - Define qué filas son "visibles" o "alcanzables" por la operación.
---    - En SELECT: filtra las filas que el rol puede ver.
---    - En UPDATE/DELETE: limita qué filas pueden actualizarse o eliminarse.
---    - Ejemplo del TP: en Usuario, USING (usuario_id = current_user_id())
---      permite operar solo sobre la fila del usuario autenticado.
---
--- 2) WITH CHECK (condición)
---    - Define qué filas se permiten INSERTAR o cómo debe quedar una fila luego de un UPDATE.
---    - En INSERT: obliga a que la fila nueva cumpla la condición.
---    - En UPDATE: obliga a que la fila resultante (NEW) siga cumpliendo la condición.
---    - Ejemplo del TP: en Usuario, WITH CHECK (usuario_id=current_user_id() AND rol='cliente_app')
---      evita que un cliente cambie su rol o "mueva" la fila a otro usuario.
---
--- Además, el usuario autenticado se representa con una variable de sesión:
+-- La variable de sesión:
 --   SET app.user_id = '123';
--- La función current_user_id() lee esa variable. Si no está seteada o no es válida,
--- devuelve NULL y las policies tienden a bloquear el acceso (comportamiento seguro).
+-- La función current_user_id() lee esa variable.
 -- =========================================================
+
 
 -- =========================================================
 -- 1. FUNCIÓN PARA OBTENER EL USUARIO ACTUAL
 -- =========================================================
+-- CAMBIO:
+-- - Quitado SECURITY DEFINER (no hace falta y puede ser riesgoso/confuso con RLS).
+-- - Manejo explícito: si falta o es inválido, devuelve NULL (comportamiento seguro).
 CREATE OR REPLACE FUNCTION current_user_id()
-RETURNS INTEGER AS $$
+RETURNS INTEGER
+LANGUAGE plpgsql
+STABLE
+AS $$
 DECLARE
-    v_user_id INTEGER;
+    v_text text;
+    v_user_id integer;
 BEGIN
+    v_text := current_setting('app.user_id', true);
+
+    IF v_text IS NULL OR btrim(v_text) = '' THEN
+        RETURN NULL;
+    END IF;
+
     BEGIN
-        v_user_id := current_setting('app.user_id', true)::INTEGER;
+        v_user_id := v_text::integer;
     EXCEPTION
-        WHEN OTHERS THEN
+        WHEN invalid_text_representation THEN
             RETURN NULL;
     END;
 
     RETURN v_user_id;
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION current_user_id() IS
-'Retorna el usuario_id del usuario autenticado desde la variable de sesión app.user_id. Debe establecerse antes de realizar operaciones.';
+'Retorna el usuario_id del usuario autenticado desde la variable de sesión app.user_id. Debe establecerse antes de realizar operaciones. Si no está seteada o es inválida, retorna NULL (bloqueo seguro).';
+
 
 -- =========================================================
 -- 2. HABILITAR RLS EN LAS TABLAS CON DATOS PERSONALES
@@ -73,9 +71,13 @@ ALTER TABLE lineaFactura ENABLE ROW LEVEL SECURITY;
 ALTER TABLE Pago         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE Envio        ENABLE ROW LEVEL SECURITY;
 
+
 -- =========================================================
 -- 3. POLÍTICAS RLS PARA TABLA Usuario
 -- =========================================================
+-- CAMBIO: hacerlo idempotente
+DROP POLICY IF EXISTS usuario_select_own ON Usuario;
+DROP POLICY IF EXISTS usuario_update_own ON Usuario;
 
 CREATE POLICY usuario_select_own ON Usuario
     FOR SELECT
@@ -97,9 +99,14 @@ COMMENT ON POLICY usuario_select_own ON Usuario IS
 COMMENT ON POLICY usuario_update_own ON Usuario IS
 'Permite a los clientes actualizar solo su propio registro, sin modificar usuario_id ni rol.';
 
+
 -- =========================================================
 -- 4. POLÍTICAS RLS PARA TABLA Direccion
 -- =========================================================
+DROP POLICY IF EXISTS direccion_select_own ON Direccion;
+DROP POLICY IF EXISTS direccion_insert_own ON Direccion;
+DROP POLICY IF EXISTS direccion_update_own ON Direccion;
+DROP POLICY IF EXISTS direccion_delete_own ON Direccion;
 
 CREATE POLICY direccion_select_own ON Direccion
     FOR SELECT
@@ -134,9 +141,14 @@ COMMENT ON POLICY direccion_update_own ON Direccion IS
 COMMENT ON POLICY direccion_delete_own ON Direccion IS
 'Permite a los clientes eliminar solo sus propias direcciones.';
 
+
 -- =========================================================
 -- 5. POLÍTICAS RLS PARA TABLA Carrito
 -- =========================================================
+DROP POLICY IF EXISTS carrito_select_own ON Carrito;
+DROP POLICY IF EXISTS carrito_insert_own ON Carrito;
+DROP POLICY IF EXISTS carrito_update_own ON Carrito;
+DROP POLICY IF EXISTS carrito_delete_own ON Carrito;
 
 CREATE POLICY carrito_select_own ON Carrito
     FOR SELECT
@@ -171,16 +183,22 @@ COMMENT ON POLICY carrito_update_own ON Carrito IS
 COMMENT ON POLICY carrito_delete_own ON Carrito IS
 'Permite a los clientes eliminar solo sus propios carritos.';
 
+
 -- =========================================================
 -- 6. POLÍTICAS RLS PARA TABLA lineaCarrito
 -- =========================================================
+DROP POLICY IF EXISTS lineacarrito_select_own ON lineaCarrito;
+DROP POLICY IF EXISTS lineacarrito_insert_own ON lineaCarrito;
+DROP POLICY IF EXISTS lineacarrito_update_own ON lineaCarrito;
+DROP POLICY IF EXISTS lineacarrito_delete_own ON lineaCarrito;
 
 CREATE POLICY lineacarrito_select_own ON lineaCarrito
     FOR SELECT
     TO cliente_app
     USING (
         EXISTS (
-            SELECT 1 FROM Carrito
+            SELECT 1
+            FROM Carrito
             WHERE Carrito.carrito_id = lineaCarrito.id_carrito
               AND Carrito.id_usuario = current_user_id()
         )
@@ -191,7 +209,8 @@ CREATE POLICY lineacarrito_insert_own ON lineaCarrito
     TO cliente_app
     WITH CHECK (
         EXISTS (
-            SELECT 1 FROM Carrito
+            SELECT 1
+            FROM Carrito
             WHERE Carrito.carrito_id = lineaCarrito.id_carrito
               AND Carrito.id_usuario = current_user_id()
         )
@@ -202,14 +221,16 @@ CREATE POLICY lineacarrito_update_own ON lineaCarrito
     TO cliente_app
     USING (
         EXISTS (
-            SELECT 1 FROM Carrito
+            SELECT 1
+            FROM Carrito
             WHERE Carrito.carrito_id = lineaCarrito.id_carrito
               AND Carrito.id_usuario = current_user_id()
         )
     )
     WITH CHECK (
         EXISTS (
-            SELECT 1 FROM Carrito
+            SELECT 1
+            FROM Carrito
             WHERE Carrito.carrito_id = lineaCarrito.id_carrito
               AND Carrito.id_usuario = current_user_id()
         )
@@ -220,7 +241,8 @@ CREATE POLICY lineacarrito_delete_own ON lineaCarrito
     TO cliente_app
     USING (
         EXISTS (
-            SELECT 1 FROM Carrito
+            SELECT 1
+            FROM Carrito
             WHERE Carrito.carrito_id = lineaCarrito.id_carrito
               AND Carrito.id_usuario = current_user_id()
         )
@@ -238,9 +260,14 @@ COMMENT ON POLICY lineacarrito_update_own ON lineaCarrito IS
 COMMENT ON POLICY lineacarrito_delete_own ON lineaCarrito IS
 'Permite a los clientes eliminar solo líneas de sus propios carritos.';
 
+
 -- =========================================================
 -- 7. POLÍTICAS RLS PARA TABLA Favorito
 -- =========================================================
+DROP POLICY IF EXISTS favorito_select_own ON Favorito;
+DROP POLICY IF EXISTS favorito_insert_own ON Favorito;
+DROP POLICY IF EXISTS favorito_update_own ON Favorito;
+DROP POLICY IF EXISTS favorito_delete_own ON Favorito;
 
 CREATE POLICY favorito_select_own ON Favorito
     FOR SELECT
@@ -275,9 +302,14 @@ COMMENT ON POLICY favorito_update_own ON Favorito IS
 COMMENT ON POLICY favorito_delete_own ON Favorito IS
 'Permite a los clientes eliminar solo sus propios favoritos.';
 
+
 -- =========================================================
 -- 8. POLÍTICAS RLS PARA TABLA Reseña
 -- =========================================================
+DROP POLICY IF EXISTS reseña_select_all ON Reseña;
+DROP POLICY IF EXISTS reseña_insert_own ON Reseña;
+DROP POLICY IF EXISTS reseña_update_own ON Reseña;
+DROP POLICY IF EXISTS reseña_delete_own ON Reseña;
 
 CREATE POLICY reseña_select_all ON Reseña
     FOR SELECT
@@ -312,9 +344,11 @@ COMMENT ON POLICY reseña_update_own ON Reseña IS
 COMMENT ON POLICY reseña_delete_own ON Reseña IS
 'Permite a los clientes eliminar solo sus propias reseñas.';
 
+
 -- =========================================================
 -- 9. POLÍTICAS RLS PARA TABLA Factura
 -- =========================================================
+DROP POLICY IF EXISTS factura_select_own ON Factura;
 
 CREATE POLICY factura_select_own ON Factura
     FOR SELECT
@@ -324,16 +358,19 @@ CREATE POLICY factura_select_own ON Factura
 COMMENT ON POLICY factura_select_own ON Factura IS
 'Permite a los clientes ver solo sus propias facturas.';
 
+
 -- =========================================================
 -- 10. POLÍTICAS RLS PARA TABLA lineaFactura
 -- =========================================================
+DROP POLICY IF EXISTS lineafactura_select_own ON lineaFactura;
 
 CREATE POLICY lineafactura_select_own ON lineaFactura
     FOR SELECT
     TO cliente_app
     USING (
         EXISTS (
-            SELECT 1 FROM Factura
+            SELECT 1
+            FROM Factura
             WHERE Factura.factura_id = lineaFactura.id_factura
               AND Factura.id_usuario = current_user_id()
         )
@@ -342,16 +379,19 @@ CREATE POLICY lineafactura_select_own ON lineaFactura
 COMMENT ON POLICY lineafactura_select_own ON lineaFactura IS
 'Permite a los clientes ver solo líneas de sus propias facturas.';
 
+
 -- =========================================================
 -- 11. POLÍTICAS RLS PARA TABLA Pago
 -- =========================================================
+DROP POLICY IF EXISTS pago_select_own ON Pago;
 
 CREATE POLICY pago_select_own ON Pago
     FOR SELECT
     TO cliente_app
     USING (
         EXISTS (
-            SELECT 1 FROM Factura
+            SELECT 1
+            FROM Factura
             WHERE Factura.factura_id = Pago.id_factura
               AND Factura.id_usuario = current_user_id()
         )
@@ -360,16 +400,19 @@ CREATE POLICY pago_select_own ON Pago
 COMMENT ON POLICY pago_select_own ON Pago IS
 'Permite a los clientes ver solo pagos de sus propias facturas.';
 
+
 -- =========================================================
 -- 12. POLÍTICAS RLS PARA TABLA Envio
 -- =========================================================
+DROP POLICY IF EXISTS envio_select_own ON Envio;
 
 CREATE POLICY envio_select_own ON Envio
     FOR SELECT
     TO cliente_app
     USING (
         EXISTS (
-            SELECT 1 FROM Factura
+            SELECT 1
+            FROM Factura
             WHERE Factura.factura_id = Envio.id_factura
               AND Factura.id_usuario = current_user_id()
         )
@@ -378,9 +421,20 @@ CREATE POLICY envio_select_own ON Envio
 COMMENT ON POLICY envio_select_own ON Envio IS
 'Permite a los clientes ver solo envíos de sus propias facturas.';
 
+
 -- =========================================================
 -- POLÍTICAS RLS PARA admin_app (ACCESO COMPLETO)
 -- =========================================================
+DROP POLICY IF EXISTS usuario_admin_all ON Usuario;
+DROP POLICY IF EXISTS direccion_admin_all ON Direccion;
+DROP POLICY IF EXISTS carrito_admin_all ON Carrito;
+DROP POLICY IF EXISTS lineacarrito_admin_all ON lineaCarrito;
+DROP POLICY IF EXISTS favorito_admin_all ON Favorito;
+DROP POLICY IF EXISTS reseña_admin_all ON Reseña;
+DROP POLICY IF EXISTS factura_admin_all ON Factura;
+DROP POLICY IF EXISTS lineafactura_admin_all ON lineaFactura;
+DROP POLICY IF EXISTS pago_admin_all ON Pago;
+DROP POLICY IF EXISTS envio_admin_all ON Envio;
 
 CREATE POLICY usuario_admin_all ON Usuario
     FOR ALL
@@ -442,9 +496,17 @@ CREATE POLICY envio_admin_all ON Envio
     USING (true)
     WITH CHECK (true);
 
+
 -- =========================================================
 -- POLÍTICAS RLS PARA operador_comercial (SELECT en tablas con RLS)
 -- =========================================================
+DROP POLICY IF EXISTS usuario_operador_comercial_all ON Usuario;
+DROP POLICY IF EXISTS carrito_operador_comercial_all ON Carrito;
+DROP POLICY IF EXISTS lineacarrito_operador_comercial_all ON lineaCarrito;
+DROP POLICY IF EXISTS favorito_operador_comercial_all ON Favorito;
+DROP POLICY IF EXISTS reseña_operador_comercial_all ON Reseña;
+DROP POLICY IF EXISTS factura_operador_comercial_all ON Factura;
+DROP POLICY IF EXISTS lineafactura_operador_comercial_all ON lineaFactura;
 
 CREATE POLICY usuario_operador_comercial_all ON Usuario
     FOR SELECT
@@ -481,9 +543,17 @@ CREATE POLICY lineafactura_operador_comercial_all ON lineaFactura
     TO operador_comercial
     USING (true);
 
+
 -- =========================================================
 -- POLÍTICAS RLS PARA operador_logistica
 -- =========================================================
+DROP POLICY IF EXISTS usuario_operador_logistica_all ON Usuario;
+DROP POLICY IF EXISTS direccion_operador_logistica_all ON Direccion;
+DROP POLICY IF EXISTS carrito_operador_logistica_all ON Carrito;
+DROP POLICY IF EXISTS lineacarrito_operador_logistica_all ON lineaCarrito;
+DROP POLICY IF EXISTS factura_operador_logistica_all ON Factura;
+DROP POLICY IF EXISTS lineafactura_operador_logistica_all ON lineaFactura;
+DROP POLICY IF EXISTS envio_operador_logistica_all ON Envio;
 
 CREATE POLICY usuario_operador_logistica_all ON Usuario
     FOR SELECT
@@ -521,4 +591,20 @@ CREATE POLICY envio_operador_logistica_all ON Envio
     USING (true)
     WITH CHECK (true);
 
+
+
+-- 13. FORZAR RLS (incluso para el owner; superuser siempre bypass)
+
+ALTER TABLE usuario      FORCE ROW LEVEL SECURITY;
+ALTER TABLE direccion    FORCE ROW LEVEL SECURITY;
+ALTER TABLE carrito      FORCE ROW LEVEL SECURITY;
+ALTER TABLE lineacarrito FORCE ROW LEVEL SECURITY;
+ALTER TABLE favorito     FORCE ROW LEVEL SECURITY;
+ALTER TABLE reseña       FORCE ROW LEVEL SECURITY;
+ALTER TABLE factura      FORCE ROW LEVEL SECURITY;
+ALTER TABLE lineafactura FORCE ROW LEVEL SECURITY;
+ALTER TABLE pago         FORCE ROW LEVEL SECURITY;
+ALTER TABLE envio        FORCE ROW LEVEL SECURITY;
+
 COMMIT;
+

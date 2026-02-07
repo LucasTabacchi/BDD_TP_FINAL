@@ -116,9 +116,8 @@ GRANT SELECT ON lineaFactura TO cliente_app;
 GRANT SELECT ON Pago  TO cliente_app;
 GRANT SELECT ON Envio TO cliente_app;
 
--- =========================================================
+
 -- PERMISOS ESPECÍFICOS PARA FUNCIÓN DE NEGOCIO: anular_factura()
--- =========================================================
 -- Seguridad: por defecto, cualquiera podría ejecutar funciones si tiene USAGE/EXECUTE heredado.
 -- Restringimos explícitamente esta función: solo admin_app puede anular facturas.
 
@@ -129,7 +128,5 @@ REVOKE ALL ON FUNCTION anular_factura(INT, TEXT) FROM operador_logistica;
 
 GRANT EXECUTE ON FUNCTION anular_factura(INT, TEXT) TO admin_app;
 
--- =========================================================
--- FIN
--- =========================================================
+
 
