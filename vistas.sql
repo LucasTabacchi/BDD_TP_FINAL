@@ -405,8 +405,6 @@ GRANT SELECT ON v_detalle_factura TO operador_comercial;
 GRANT SELECT ON v_ventas_producto TO operador_comercial;
 GRANT SELECT ON v_resenas_productos TO operador_comercial;
 GRANT SELECT ON v_productos_populares TO operador_comercial;
-GRANT SELECT ON Pago TO operador_comercial;
-GRANT SELECT ON Envio TO operador_comercial;
 GRANT SELECT ON v_envios_pendientes TO operador_comercial;
 
 
@@ -416,6 +414,7 @@ GRANT SELECT ON v_productos_stock TO operador_logistica;
 GRANT SELECT ON v_productos_stock_bajo TO operador_logistica;
 GRANT SELECT ON v_envios_pendientes TO operador_logistica;
 GRANT SELECT ON v_facturas_completas TO operador_logistica;
+
 
 -- Administrador: Todas las vistas
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO admin_app;

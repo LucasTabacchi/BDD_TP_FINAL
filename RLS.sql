@@ -28,30 +28,30 @@ BEGIN;
 -- - Quitado SECURITY DEFINER (no hace falta y puede ser riesgoso/confuso con RLS).
 -- - Manejo explícito: si falta o es inválido, devuelve NULL (comportamiento seguro).
 CREATE OR REPLACE FUNCTION current_user_id()
-RETURNS INTEGER
-LANGUAGE plpgsql
-STABLE
-AS $$
+RETURNS INTEGER AS $$
 DECLARE
-    v_text text;
-    v_user_id integer;
+  v_user_id INTEGER;
 BEGIN
-    v_text := current_setting('app.user_id', true);
-
-    IF v_text IS NULL OR btrim(v_text) = '' THEN
-        RETURN NULL;
+  -- 1) Si está seteado app.user_id, usarlo (modo testing/manual)
+  BEGIN
+    v_user_id := current_setting('app.user_id', true)::INTEGER;
+    IF v_user_id IS NOT NULL THEN
+      RETURN v_user_id;
     END IF;
+  EXCEPTION WHEN OTHERS THEN
+    -- ignorar
+  END;
 
-    BEGIN
-        v_user_id := v_text::integer;
-    EXCEPTION
-        WHEN invalid_text_representation THEN
-            RETURN NULL;
-    END;
+  -- 2) Si no, mapear por session_user -> Usuario.db_login
+  SELECT u.usuario_id
+  INTO v_user_id
+  FROM Usuario u
+  WHERE u.db_login = session_user
+  LIMIT 1;
 
-    RETURN v_user_id;
+  RETURN v_user_id; -- puede ser NULL si no hay match
 END;
-$$;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
 COMMENT ON FUNCTION current_user_id() IS
 'Retorna el usuario_id del usuario autenticado desde la variable de sesión app.user_id. Debe establecerse antes de realizar operaciones. Si no está seteada o es inválida, retorna NULL (bloqueo seguro).';

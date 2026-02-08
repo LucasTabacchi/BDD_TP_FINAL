@@ -52,6 +52,8 @@ GRANT SELECT ON lineaCarrito    TO operador_comercial;
 GRANT SELECT ON Factura         TO operador_comercial;
 GRANT SELECT ON lineaFactura    TO operador_comercial;
 GRANT SELECT ON Favorito        TO operador_comercial;
+GRANT SELECT ON Pago            TO operador_comercial;
+GRANT SELECT ON Envio           TO operador_comercial;
 
 -- =========================================================
 -- 3) OPERADOR_LOGISTICA - Stock / ingresos / envíos
@@ -81,6 +83,12 @@ GRANT SELECT ON lineaFactura TO operador_logistica;
 GRANT SELECT ON Usuario     TO operador_logistica;
 GRANT SELECT ON Carrito     TO operador_logistica;
 GRANT SELECT ON lineaCarrito TO operador_logistica;
+GRANT SELECT ON Producto TO operador_logistica;
+GRANT UPDATE (stock) ON Producto TO operador_logistica;
+GRANT SELECT ON v_detalle_factura TO operador_logistica;
+GRANT SELECT ON Factura, Usuario, Pago, Envio TO operador_logistica;
+GRANT SELECT ON Direccion, Ciudad, Provincia TO operador_logistica;
+GRANT SELECT ON lineaFactura TO operador_logistica;
 
 -- =========================================================
 -- 4) CLIENTE_APP - Cliente de la aplicación

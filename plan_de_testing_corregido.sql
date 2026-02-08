@@ -66,10 +66,6 @@ ORDER BY viewname;
 -- Contexto RLS
 SET ROLE cliente_app;
 
--- Ajustar: poner el usuario_id real de Ana
--- (si no sabés, consultalo en el bloque de pre-check)
-SET app.user_id = '1';
-
 SELECT current_user, current_role, current_setting('app.user_id', true);
 
 -- 1.1 RLS Usuario: debe ver SOLO su fila

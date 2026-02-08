@@ -43,22 +43,22 @@ INSERT INTO Ciudad (id_provincia, cp, nombre) VALUES
 -- =========================================================
 -- USUARIO (15 filas)
 -- =========================================================
-INSERT INTO Usuario (nombre, apellido, email, contrasenia, rol) VALUES
-('Ana',     'Pérez',    'ana@example.com',      'Password1',   'cliente_app'),
-('Bruno',   'García',   'bruno@example.com',    'Password2',   'cliente_app'),
-('Carla',   'López',    'carla@example.com',    'Password3',   'cliente_app'),
-('Diego',   'Martínez', 'diego@example.com',    'Password4',   'cliente_app'),
-('Elena',   'Suárez',   'elena@example.com',    'Password5',   'cliente_app'),
-('Fernando','Rossi',    'fernando@example.com', 'Password6',   'operador_comercial'),
-('Gabriela','Santos',   'gabriela@example.com', 'Password7',   'operador_comercial'),
-('Hernán',  'Torres',   'hernan@example.com',   'Password8',   'operador_logistica'),
-('Inés',    'Moreno',   'ines@example.com',     'Password9',   'operador_logistica'),
-('Julián',  'Díaz',     'julian@example.com',   'Password10',  'admin_app'),
-('Karen',   'Vega',     'karen@example.com',    'Password11',  'cliente_app'),
-('Luis',    'Navarro',  'luis@example.com',     'Password12',  'cliente_app'),
-('María',   'Castro',   'maria@example.com',    'Password13',  'cliente_app'),
-('Nicolás', 'Ferrer',   'nicolas@example.com',  'Password14',  'cliente_app'),
-('Olga',    'Silva',    'olga@example.com',     'Password15',  'cliente_app');
+INSERT INTO Usuario (nombre, apellido, email, contrasenia, rol, db_login) VALUES
+('Ana',      'Pérez',    'ana@example.com',      'Password1',   'cliente_app',         'ana_perez'),
+('Bruno',    'García',   'bruno@example.com',    'Password2',   'cliente_app',         'bruno_garcia'),
+('Carla',    'López',    'carla@example.com',    'Password3',   'cliente_app',         'carla_lopez'),
+('Diego',    'Martínez', 'diego@example.com',    'Password4',   'cliente_app',         'diego_martinez'),
+('Elena',    'Suárez',   'elena@example.com',    'Password5',   'cliente_app',         'elena_suarez'),
+('Fernando', 'Rossi',    'fernando@example.com', 'Password6',   'operador_comercial',  'fernando_rossi'),
+('Gabriela', 'Santos',   'gabriela@example.com', 'Password7',   'operador_comercial',  'gabriela_santos'),
+('Hernán',   'Torres',   'hernan@example.com',   'Password8',   'operador_logistica',  'hernan_torres'),
+('Inés',     'Moreno',   'ines@example.com',     'Password9',   'operador_logistica',  'ines_moreno'),
+('Julián',   'Díaz',     'julian@example.com',   'Password10',  'admin_app',           'julian_diaz'),
+('Karen',    'Vega',     'karen@example.com',    'Password11',  'cliente_app',         'karen_vega'),
+('Luis',     'Navarro',  'luis@example.com',     'Password12',  'cliente_app',         'luis_navarro'),
+('María',    'Castro',   'maria@example.com',    'Password13',  'cliente_app',         'maria_castro'),
+('Nicolás',  'Ferrer',   'nicolas@example.com',  'Password14',  'cliente_app',         'nicolas_ferrer'),
+('Olga',     'Silva',    'olga@example.com',     'Password15',  'cliente_app',         'olga_silva');
 -- usuario_id = 1..15 en este orden
 
 -- =========================================================

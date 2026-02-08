@@ -326,9 +326,32 @@ COMMENT ON FUNCTION validar_pago_total_factura() IS
 
 ---- BLOQUEO DE MODIFICACIÓN / ELIMINACIÓN DE FACTURAS (la factura es documento; si hay error, se anula, no se edita/borra)
 CREATE OR REPLACE FUNCTION bloquear_modificacion_factura()
-RETURNS TRIGGER AS $$
+RETURNS trigger AS $$
 BEGIN
-    RAISE EXCEPTION 'No se permite modificar ni eliminar facturas conformadas. Use anulación.';
+  -- Permitir la transición emitida -> anulada
+  IF OLD.estado = 'emitida' AND NEW.estado = 'anulada' THEN
+    RETURN NEW;
+  END IF;
+
+  -- Permitir actualizaciones automáticas del monto_total (por triggers de líneas)
+  IF OLD.estado = 'emitida'
+     AND NEW.estado = OLD.estado
+     AND NEW.id_usuario = OLD.id_usuario
+     AND NEW.fecha = OLD.fecha
+     AND NEW.monto_total IS DISTINCT FROM OLD.monto_total
+  THEN
+    -- acá dejamos pasar SOLO si el único cambio es monto_total
+    -- (si tenés más columnas en Factura, agregalas al chequeo)
+    RETURN NEW;
+  END IF;
+
+  -- Bloquear modificaciones sobre facturas emitidas/anuladas
+  IF OLD.estado IN ('emitida', 'anulada') THEN
+    RAISE EXCEPTION
+      'No se permite modificar ni eliminar facturas conformadas. Use anulación.';
+  END IF;
+
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
