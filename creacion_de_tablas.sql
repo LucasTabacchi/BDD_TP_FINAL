@@ -4,7 +4,7 @@ BEGIN;
 -- =========================================================
 CREATE TABLE Provincia (
   provincia_id SERIAL PRIMARY KEY,
-  nombre       VARCHAR(50) NOT NULL
+  nombre       VARCHAR(50) NOT NULL UNIQUE
 );
 
 CREATE TABLE Ciudad (
@@ -23,7 +23,7 @@ CREATE TABLE Usuario (
   apellido    VARCHAR(50)  NOT NULL,
   email       VARCHAR(100) NOT NULL UNIQUE,
   contrasenia VARCHAR(80)  NOT NULL CHECK (length(contrasenia) >= 8),
-  db_login text UNIQUE;
+  db_login    TEXT UNIQUE,
   rol         VARCHAR(30)  NOT NULL CHECK (rol IN ('admin_app','operador_logistica','operador_comercial','cliente_app'))
 );
 

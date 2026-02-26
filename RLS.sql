@@ -51,7 +51,7 @@ BEGIN
 
   RETURN v_user_id; -- puede ser NULL si no hay match
 END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE;
 
 COMMENT ON FUNCTION current_user_id() IS
 'Retorna el usuario_id del usuario autenticado desde la variable de sesión app.user_id. Debe establecerse antes de realizar operaciones. Si no está seteada o es inválida, retorna NULL (bloqueo seguro).';

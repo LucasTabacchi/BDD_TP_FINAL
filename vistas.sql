@@ -157,20 +157,23 @@ COMMENT ON VIEW v_carritos_activos IS
 
 -- Vista: Detalle de carrito con productos
 CREATE OR REPLACE VIEW v_detalle_carrito AS
-SELECT 
-    c.carrito_id,
-    c.id_usuario,
-    c.estado,
-    c.total AS total_carrito,
-    lc.id_producto,
-    p.nombre AS nombre_producto,
-    lc.cantidad,
-    lc.precio_unitario,
-    lc.subtotal,
-    lc.fecha_agregado
+SELECT
+  c.carrito_id,
+  c.id_usuario,
+  c.estado,
+  c.total AS total_carrito,
+  lc.id_producto,
+  p.nombre AS nombre_producto,
+  lc.cantidad,
+  lc.precio_unitario,
+  lc.subtotal,
+  lc.fecha_agregado
 FROM Carrito c
-JOIN lineaCarrito lc ON c.carrito_id = lc.id_carrito
-JOIN Producto p ON lc.id_producto = p.producto_id;
+LEFT JOIN lineaCarrito lc
+  ON lc.id_carrito = c.carrito_id
+LEFT JOIN Producto p
+  ON p.producto_id = lc.id_producto
+ORDER BY c.carrito_id, lc.id_producto;
 
 COMMENT ON VIEW v_detalle_carrito IS 
 'Detalle completo de carritos con información de productos.';
